@@ -2,8 +2,6 @@ package org.ivan;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
@@ -77,7 +75,7 @@ public class ExcelApplicationTests {
         Person cupPerson = new Person(a1);
         cupPerson.setPersonName("Pesho");
         cupPerson.setGender(Gender.MALE);
-        //cupPerson.setAddress(a1);
+        //cupPerson.setAddress(a1); 
         personRepository.save(cupPerson);
 
         Person c1 = new Person(a2);
