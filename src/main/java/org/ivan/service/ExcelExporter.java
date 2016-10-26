@@ -45,18 +45,18 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class ExcelExporter {
-    
+
     private static final String NEW_LINE_SEPARATOR = "\n";
-    
+
     public File createExcelExport(List<Person> objects, List<String> headers, String fileName) throws IOException {
-        
+
         File xlsFile = new File(fileName);
         FileWriter writer = new FileWriter(xlsFile);
-        
+
         BufferedWriter bufferedWriter = new BufferedWriter(writer);
         for (int i = 0; i < headers.size(); i++) {
             String cup = headers.get(i);
-            
+
             if (i < headers.size() - 1) {
                 cup += "\t";
             }
@@ -72,79 +72,67 @@ public class ExcelExporter {
             bufferedWriter.write(obj.getAddress().getCity() + "\t");
             bufferedWriter.write(obj.getAddress().getCountry() + "\n");
         }
-        
+
         bufferedWriter.close();
-        
+
         return xlsFile;
     }
-    
-    public List<String> getHeaders(Class classDefinition) {
-        
+
+    public List<String> getFieldNames(Class classDefinition) {
+
         List<String> fieldNames = new ArrayList<>();
-        
+
         for (Field field : classDefinition.getDeclaredFields()) {
             fieldNames.add(field.getName());
         }
-        
+
         return fieldNames;
     }
-    
-    public <T extends Object> List<String> getHeadersFromGetMethods(T obj) {
-        
-        List<String> fieldNames = getHeaders(obj.getClass());
-        PropertyDescriptor propertyDescriptor;//Use for getters and setters from property
-        Method currentGetMethod;//Current get method from current property
-        List<String> methodNames = new ArrayList<>();
+
+    public <E extends Object> Map<String, List<Map<String, String>>> getSheetListsByFieldName(List<E> objects, String fieldName) {
+
+        Map<String, List<Map<String, String>>> sheetList = new HashMap<>();
+        for (E object : objects) {
+            Map<String, String> objectValues = getValuesWithHeaders(object);
+
+            if (!sheetList.containsKey(objectValues.get(fieldName))) {
+                sheetList.put(objectValues.get(fieldName), new ArrayList<>());
+            }
+            sheetList.get(objectValues.get(fieldName)).add(objectValues);
+        }
+        return sheetList;
+    }
+
+    public <T extends Object> Map<String, String> getValuesWithHeaders(T obj) {
+
+        List<String> fieldNames = getFieldNames(obj.getClass());
+        PropertyDescriptor propertyDescriptor;
+        Method currentGetMethod;
+        Map<String, String> valuesWithHeaders = new HashMap<>();
         for (String fieldName : fieldNames) {
             try {
                 propertyDescriptor = new PropertyDescriptor(fieldName, obj.getClass());
                 currentGetMethod = propertyDescriptor.getReadMethod();
-                //values.add(currentGetMethod.invoke(obj).toString());
 
                 if (currentGetMethod.invoke(obj).toString().contains("=")) {
-                    methodNames.addAll(getHeadersFromGetMethods(currentGetMethod.invoke(obj)));
+                    valuesWithHeaders.putAll(getValuesWithHeaders(currentGetMethod.invoke(obj)));
                 } else {
-                    methodNames.add(currentGetMethod.getName().replace("get", ""));
+                    valuesWithHeaders.put(fieldName, currentGetMethod.invoke(obj).toString());
                 }
 
-                //if(currentGetMethod.invoke(obj).getClass().getSuperclass() != null)
             } catch (IntrospectionException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
                 Logger.getLogger(ExcelExporter.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-        return methodNames;
-        
-    }
-    
-    public <T extends Object> List<String> getValuesRecursive(T obj) {
-        
-        List<String> fieldNames = getHeaders(obj.getClass());
-        PropertyDescriptor propertyDescriptor;//Use for getters and setters from property
-        Method currentGetMethod;//Current get method from current property
-        List<String> values = new ArrayList<>();
-        for (String fieldName : fieldNames) {
-            try {
-                propertyDescriptor = new PropertyDescriptor(fieldName, obj.getClass());//property (fieldName) from class (classDefinition)
-                currentGetMethod = propertyDescriptor.getReadMethod();//gets the definition of the get method
-
-                if (currentGetMethod.invoke(obj).toString().contains("=")) {//obj.get<Parameter>
-                    values.addAll(getValuesRecursive(currentGetMethod.invoke(obj)));//Gets all values from getters
-                } else {
-                    values.add(currentGetMethod.invoke(obj).toString());//if its only 1 value
-                }
-                
-            } catch (IntrospectionException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-                Logger.getLogger(ExcelExporter.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-        return values;
+        return valuesWithHeaders;
     }
 // Pattern for generic type usage
 //    public <T extends Object> T getObject() {
 //        return null;
 //    }
 
-    public <T extends Object> File createExcel(List<T> objects, String fileName, String sheetName) throws IOException, InvalidFormatException {
+    public <T extends Object, E extends Object> File createExcelFromSheetMap(Map<T, List<Map<String, String>>> sheetLists, String fileName) {
+
         Workbook workbook;
         if (FilenameUtils.getExtension(fileName).equals("xls")) {
             workbook = new HSSFWorkbook();
@@ -152,109 +140,59 @@ public class ExcelExporter {
             workbook = new XSSFWorkbook();
         } else {
             workbook = new HSSFWorkbook();
-            fileName = "nope.xls";
+            fileName += ".xls";
         }
-        
-        Sheet sheet = workbook.createSheet(sheetName);
-        
+
+        sheetLists.keySet().forEach((mapKey) -> {
+            Sheet sheet = workbook.createSheet(mapKey.toString());
+            putHeaders(new ArrayList<>(sheetLists.get(mapKey).get(0).keySet()), sheet, workbook);
+            putCellValues(sheet, sheetLists.get(mapKey));
+        });
+
+        return excelFile(workbook, fileName);
+    }
+
+    private void putHeaders(List<String> headers, Sheet sheet, Workbook workbook) {
         Font font = workbook.createFont();
         font.setBold(true);
         CellStyle style = workbook.createCellStyle();
         style.setFont(font);
-        
+
+        Row row = sheet.createRow(0);
         int cellNum = 0;
-        int rowNum = 0;
-        List<String> headers = getHeadersFromGetMethods(objects.get(0));
-        Row row = sheet.createRow(rowNum++);
-        for (int i = 0; i < headers.size(); i++) {
-            String cup = headers.get(i);
+        for (String header : headers) {
             Cell cell = row.createCell(cellNum++);
-            cell.setCellValue(cup);
+            cell.setCellValue(header);
             cell.setCellStyle(style);
         }
-        for (T obj : objects) {
-            
+    }
+
+    private void putCellValues(Sheet sheet, List<Map<String, String>> cellValues) {
+        int rowNum = 1;
+        int cellNum;
+        Row row;
+        for (Map<String, String> objectValues : cellValues) {
             cellNum = 0;
-            List<String> parameters = getValuesRecursive(obj);
             row = sheet.createRow(rowNum++);
-            for (String parameter : parameters) {
-                
+            for (String parameter : objectValues.values()) {
+
                 Cell cell = row.createCell(cellNum++);
                 cell.setCellValue(parameter);
-                sheet.autoSizeColumn(cellNum);
             }
-            
         }
-        
-        try {
-            FileOutputStream out
-                    = new FileOutputStream(new File(fileName));
-            workbook.write(out);
-            out.close();
-            
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        
-        return null;
     }
-    
-    public <T extends Object, E extends Object> File createExcelFromMap(Map<T, List<E>> objects, String fileName) {
-        
-        Workbook workbook;
-        if (FilenameUtils.getExtension(fileName).equals("xls")) {
-            workbook = new HSSFWorkbook();
-        } else if (FilenameUtils.getExtension(fileName).equals("xlsx")) {
-            workbook = new XSSFWorkbook();
-        } else {
-            workbook = new HSSFWorkbook();
-            fileName = "nope.xls";
-        }
-        Font font = workbook.createFont();
-        font.setBoldweight(HSSFFont.BOLDWEIGHT_BOLD);
-        CellStyle style = workbook.createCellStyle();
-        style.setFont(font);
-        for (T mapKey : objects.keySet()) {
-            
-            Sheet sheet = workbook.createSheet(mapKey.toString());
-            int cellNum = 0;
-            int rowNum = 0;
-            List<String> headers = getHeadersFromGetMethods(objects.get(mapKey).get(0));
-            
-            Row row = sheet.createRow(rowNum++);
-            for (int i = 0; i < headers.size(); i++) {
-                String cup = headers.get(i);
-                Cell cell = row.createCell(cellNum++);
-                cell.setCellValue(cup);
-                cell.setCellStyle(style);
-            }
-            
-            for (E object : objects.get(mapKey)) {
-                cellNum = 0;
-                List<String> parameters = getValuesRecursive(object);
-                row = sheet.createRow(rowNum++);
-                for (String parameter : parameters) {
-                    
-                    Cell cell = row.createCell(cellNum++);
-                    cell.setCellValue(parameter);
-                    sheet.autoSizeColumn(cellNum);
-                }
-            }
-        }
-        
+
+    private File excelFile(Workbook workbook, String fileName) {
         File file = new File(fileName);
         try {
-            FileOutputStream out = new FileOutputStream(file);
-            workbook.write(out);
-            out.close();
-            
+            try (FileOutputStream out = new FileOutputStream(file)) {
+                workbook.write(out);
+            }
+
         } catch (FileNotFoundException e) {
         } catch (IOException e) {
         }
-        
-        return null;
+
+        return file;
     }
-    
 }

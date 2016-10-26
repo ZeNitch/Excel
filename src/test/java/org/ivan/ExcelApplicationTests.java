@@ -99,27 +99,9 @@ public class ExcelApplicationTests {
         personRepository.save(c3);
 
         List<Person> personArray = personRepository.findAll();
-        File file = excelExporter.createExcel(personRepository.findAll(), "exceltest.xlsx", Gender.MALE.toString());
-
-        Map<String, List<Person>> sheetMap = new HashMap<>();
-
-        for (Person person : personArray) {
-            if (!sheetMap.containsKey(person.getAddress().getHouse().getType())) {
-                sheetMap.put(person.getAddress().getHouse().getType(), new ArrayList<>());
-            }
-            sheetMap.get(person.getAddress().getHouse().getType()).add(person);
-        }
-        Map<Long, List<Person>> sheetMapTest = new HashMap<>();
-
-        for (Person person : personArray) {
-            if (!sheetMapTest.containsKey(person.getAddress().getHouse().getHouseId())) {
-                sheetMapTest.put(person.getAddress().getHouse().getHouseId(), new ArrayList<>());
-            }
-            sheetMapTest.get(person.getAddress().getHouse().getHouseId()).add(person);
-        }
-        File fileTestTwo = excelExporter.createExcelFromMap(sheetMap, "myFile2.xlsx");
-        fileTestTwo = excelExporter.createExcelFromMap(sheetMapTest, "myFile2");
-        fileTestTwo = excelExporter.createExcelFromMap(sheetMap, "myFile2.xls");
+        //File file = excelExporter.createExcel(personRepository.findAll(), "exceltest.xlsx", Gender.MALE.toString());
+        Map<String, List<Map<String, String>>> sheets = excelExporter.getSheetListsByFieldName(personArray, "personName");
+        File fileTestTwo = excelExporter.createExcelFromSheetMap(sheets, "myFile2.xlsx");
     }
 
 }
