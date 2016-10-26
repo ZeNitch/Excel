@@ -35,4 +35,11 @@ public class Person implements Serializable {
     @Column(columnDefinition = "varbinary(1024)")
     private Address address;
 
+    public Person(Address address) {
+        this.address = address;
+    }
+
+    public Person() {
+    }
+
 }

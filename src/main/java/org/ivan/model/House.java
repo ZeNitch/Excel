@@ -6,16 +6,11 @@
 package org.ivan.model;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.validation.constraints.Size;
 import lombok.Data;
-import org.springframework.context.annotation.Bean;
 
 /**
  *
@@ -23,16 +18,11 @@ import org.springframework.context.annotation.Bean;
  */
 @Entity
 @Data
-public class Address implements Serializable {
+public class House implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    private Long addressId;
+    private Long houseId;
 
-    private String street;
-    private String city;
-    private String country;
-    @Column(columnDefinition = "varbinary(1024)")
-    private House house;
-
+    private String type;
 }

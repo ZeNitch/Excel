@@ -21,12 +21,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.poi.hssf.usermodel.HSSFCellStyle;
 import org.apache.poi.hssf.usermodel.HSSFFont;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.ivan.model.Person;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -136,14 +144,22 @@ public class ExcelExporter {
 //        return null;
 //    }
 
-    public <T extends Object> File createExcel(List<T> objects, String fileName, String sheetName) {
+    public <T extends Object> File createExcel(List<T> objects, String fileName, String sheetName) throws IOException, InvalidFormatException {
+        Workbook workbook;
+        if (FilenameUtils.getExtension(fileName).equals("xls")) {
+            workbook = new HSSFWorkbook();
+        } else if (FilenameUtils.getExtension(fileName).equals("xlsx")) {
+            workbook = new XSSFWorkbook();
+        } else {
+            workbook = new HSSFWorkbook();
+            fileName = "nope.xls";
+        }
 
-        HSSFWorkbook workbook = new HSSFWorkbook();
-        HSSFSheet sheet = workbook.createSheet(sheetName);
+        Sheet sheet = workbook.createSheet(sheetName);
 
-        HSSFFont font = workbook.createFont();
+        Font font = workbook.createFont();
         font.setBoldweight(HSSFFont.BOLDWEIGHT_BOLD);
-        HSSFCellStyle style = workbook.createCellStyle();
+        CellStyle style = workbook.createCellStyle();
         style.setFont(font);
 
         int cellNum = 0;
@@ -187,14 +203,22 @@ public class ExcelExporter {
 
     public <T extends Object, E extends Object> File createExcelFromMap(Map<T, List<E>> objects, String fileName) {
 
-        HSSFWorkbook workbook = new HSSFWorkbook();
-        HSSFFont font = workbook.createFont();
+        Workbook workbook;
+        if (FilenameUtils.getExtension(fileName).equals("xls")) {
+            workbook = new HSSFWorkbook();
+        } else if (FilenameUtils.getExtension(fileName).equals("xlsx")) {
+            workbook = new XSSFWorkbook();
+        } else {
+            workbook = new HSSFWorkbook();
+            fileName = "nope.xls";
+        }
+        Font font = workbook.createFont();
         font.setBoldweight(HSSFFont.BOLDWEIGHT_BOLD);
-        HSSFCellStyle style = workbook.createCellStyle();
+        CellStyle style = workbook.createCellStyle();
         style.setFont(font);
         for (T mapKey : objects.keySet()) {
 
-            HSSFSheet sheet = workbook.createSheet(mapKey.toString());
+            Sheet sheet = workbook.createSheet(mapKey.toString());
             int cellNum = 0;
             int rowNum = 0;
             List<String> headers = getHeadersFromGetMethods(objects.get(mapKey).get(0));
@@ -220,7 +244,7 @@ public class ExcelExporter {
             }
         }
 
-        File file = new File(fileName + ".xls");
+        File file = new File(fileName);
         try {
             FileOutputStream out = new FileOutputStream(file);
             workbook.write(out);
