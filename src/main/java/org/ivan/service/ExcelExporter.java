@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -101,28 +102,34 @@ public class ExcelExporter {
         List<String> fieldNames = getFieldNames(obj.getClass());
         PropertyDescriptor propertyDescriptor;
         Method currentGetMethod;
-        Map<String, String> valuesWithHeaders = new HashMap<>();
-        for (String fieldName : fieldNames) {
-            try {
+        Map<String, String> valuesWithHeaders = new LinkedHashMap<>();//Hash map does not retain insert order//LinkedHashMap retains insert order
+
+        List<Method> compositeTypeGetMethods = new ArrayList<>();//Get methods from inserted classes
+        try {
+            for (String fieldName : fieldNames) {
+
                 propertyDescriptor = new PropertyDescriptor(fieldName, obj.getClass());
                 currentGetMethod = propertyDescriptor.getReadMethod();
 
                 if (currentGetMethod.invoke(obj).toString().contains("=")) {
-                    valuesWithHeaders.putAll(getValuesWithHeaders(currentGetMethod.invoke(obj)));
+                    compositeTypeGetMethods.add(currentGetMethod);
                 } else {
                     valuesWithHeaders.put(fieldName, currentGetMethod.invoke(obj).toString());
                 }
 
-            } catch (IntrospectionException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-                Logger.getLogger(ExcelExporter.class.getName()).log(Level.SEVERE, null, ex);
             }
+            for (Method compositeTypeGetMethod : compositeTypeGetMethods) {
+                valuesWithHeaders.putAll(getValuesWithHeaders(compositeTypeGetMethod.invoke(obj)));
+            }
+        } catch (IntrospectionException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+            Logger.getLogger(ExcelExporter.class.getName()).log(Level.SEVERE, null, ex);
         }
         return valuesWithHeaders;
     }
-// Pattern for generic type usage
-//    public <T extends Object> T getObject() {
-//        return null;
-//    }
+    // Pattern for generic type usage
+    //    public <T extends Object> T getObject() {
+    //        return null;
+    //    }
 
     public <T extends Object, E extends Object> File createExcelFromSheetMap(Map<T, List<Map<String, String>>> sheetLists, String fileName) {
 
