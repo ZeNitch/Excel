@@ -2,6 +2,7 @@ package org.ivan;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
@@ -9,6 +10,7 @@ import org.ivan.model.Address;
 import org.ivan.model.Gender;
 import org.ivan.model.House;
 import org.ivan.model.Person;
+import org.ivan.model.ValueObject;
 import org.ivan.repository.AddressRepository;
 import org.ivan.repository.HouseRepository;
 import org.ivan.repository.PersonRepository;
@@ -75,7 +77,7 @@ public class ExcelApplicationTests {
         Person cupPerson = new Person(a1);
         cupPerson.setPersonName("Pesho");
         cupPerson.setGender(Gender.MALE);
-        //cupPerson.setAddress(a1); 
+        //cupPerson.setAddress(a1);
         personRepository.save(cupPerson);
 
         Person c1 = new Person(a2);
@@ -96,10 +98,13 @@ public class ExcelApplicationTests {
         //c3.setAddress(a4);
         personRepository.save(c3);
 
-        List<Person> personArray = personRepository.findAll();
+        List<ValueObject> personArray = new ArrayList<>(personRepository.findAll());
         //File file = excelExporter.createExcel(personRepository.findAll(), "exceltest.xlsx", Gender.MALE.toString());
-        Map<String, List<Map<String, String>>> sheets = excelExporter.getSheetListsByFieldName(personArray, "personName");
-        File fileTestTwo = excelExporter.createExcelFromSheetMap(sheets, "myFile2.xlsx");
+        Map<String, String> valuesWithHeaders = excelExporter.getValuesWithHeaders(c3);
+        Map<String, List<List<String>>> sheets = excelExporter.getSheetListsByFieldName(personArray, "Person Name");
+        File fileTestTwo = excelExporter.createExcelFromSheetMap(personArray, "Person Name", "myFile2.xlsx");
+
+        File fileTestCaveman = excelExporter.createExcelExportDeprecated(personArray, "test.xls");
     }
 
 }

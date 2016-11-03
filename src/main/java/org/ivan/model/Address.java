@@ -13,9 +13,7 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.validation.constraints.Size;
 import lombok.Data;
-import org.springframework.context.annotation.Bean;
 
 /**
  *
@@ -23,7 +21,7 @@ import org.springframework.context.annotation.Bean;
  */
 @Entity
 @Data
-public class Address implements Serializable {
+public class Address implements ValueObject, Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -35,4 +33,27 @@ public class Address implements Serializable {
     @Column(columnDefinition = "varbinary(1024)")
     private House house;
 
+    @Override
+    public List<String> getValues() {
+        List<String> values = new ArrayList<>();
+        values.add(this.addressId.toString());
+        values.add(this.street);
+        values.add(this.city);
+        values.add(this.country);
+        values.addAll(this.house.getValues());
+
+        return values;
+    }
+
+    @Override
+    public List<String> getHeaders() {
+        List<String> headers = new ArrayList<>();
+        headers.add("Address ID");
+        headers.add("Street");
+        headers.add("City");
+        headers.add("Country");
+        headers.addAll(this.house.getHeaders());
+
+        return headers;
+    }
 }

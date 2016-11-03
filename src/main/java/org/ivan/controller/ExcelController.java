@@ -6,10 +6,7 @@
 package org.ivan.controller;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
-import java.util.Map;
 import org.ivan.model.Person;
 import org.ivan.service.ExcelExporter;
 import org.ivan.service.PersonService;
@@ -51,7 +48,7 @@ public class ExcelController {
         if (!path.exists()) {
             path.mkdir();
         }
-        Map<String, List<Map<String, String>>> sheets = excelExporter.getSheetListsByFieldName(new ArrayList<>(personService.getAllUsers()), parameter);
-        return excelExporter.createExcelFromSheetMap(sheets, filepath.getAbsolutePath());
+        //Map<String, List<Map<String, String>>> sheets = excelExporter.getSheetListsByFieldName(new ArrayList<>(personService.getAllUsers()), parameter);
+        return null;
     }
 }

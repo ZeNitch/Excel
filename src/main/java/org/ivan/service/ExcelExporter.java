@@ -5,8 +5,6 @@
  */
 package org.ivan.service;
 
-import java.beans.IntrospectionException;
-import java.beans.PropertyDescriptor;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -19,8 +17,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
@@ -30,7 +26,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.ivan.model.Person;
+import org.ivan.model.ValueObject;
 import org.springframework.stereotype.Service;
 
 /**
@@ -42,29 +38,25 @@ public class ExcelExporter {
 
     private static final String NEW_LINE_SEPARATOR = "\n";
 
-    public File createExcelExport(List<Person> objects, List<String> headers, String fileName) throws IOException {
+    public <T extends ValueObject> File createExcelExport(List<T> objects, String fileName) throws IOException {
 
         File xlsFile = new File(fileName);
         FileWriter writer = new FileWriter(xlsFile);
 
         BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        for (int i = 0; i < headers.size(); i++) {
-            String cup = headers.get(i);
-
-            if (i < headers.size() - 1) {
-                cup += "\t";
-            }
-            bufferedWriter.write(cup);
+        List<String> headers = objects.get(0).getHeaders();
+        for (String header : headers) {
+            bufferedWriter.write(header);
         }
         bufferedWriter.newLine();
-        for (Person obj : objects) {
-            bufferedWriter.write(obj.getPersonId() + "\t");
-            bufferedWriter.write(obj.getPersonName() + "\t");
-            bufferedWriter.write(obj.getGender() + "\t");
-            bufferedWriter.write(obj.getAddress().getAddressId() + "\t");
-            bufferedWriter.write(obj.getAddress().getStreet() + "\t");
-            bufferedWriter.write(obj.getAddress().getCity() + "\t");
-            bufferedWriter.write(obj.getAddress().getCountry() + "\n");
+        List<String> values = new ArrayList<>();
+        for (T obj : objects) {
+            //bufferedWriter.write(obj.getValues());
+            values = obj.getValues();
+            for (String value : values) {
+                bufferedWriter.write(value);
+            }
+            bufferedWriter.newLine();
         }
 
         bufferedWriter.close();
@@ -72,66 +64,7 @@ public class ExcelExporter {
         return xlsFile;
     }
 
-    public List<String> getFieldNames(Class classDefinition) {
-
-        List<String> fieldNames = new ArrayList<>();
-
-        for (Field field : classDefinition.getDeclaredFields()) {
-            fieldNames.add(field.getName());
-        }
-
-        return fieldNames;
-    }
-
-    public <E extends Object> Map<String, List<Map<String, String>>> getSheetListsByFieldName(List<E> objects, String fieldName) {
-
-        Map<String, List<Map<String, String>>> sheetList = new HashMap<>();
-        for (E object : objects) {
-            Map<String, String> objectValues = getValuesWithHeaders(object);
-
-            if (!sheetList.containsKey(objectValues.get(fieldName))) {
-                sheetList.put(objectValues.get(fieldName), new ArrayList<>());
-            }
-            sheetList.get(objectValues.get(fieldName)).add(objectValues);
-        }
-        return sheetList;
-    }
-
-    public <T extends Object> Map<String, String> getValuesWithHeaders(T obj) {
-
-        List<String> fieldNames = getFieldNames(obj.getClass());
-        PropertyDescriptor propertyDescriptor;
-        Method currentGetMethod;
-        Map<String, String> valuesWithHeaders = new LinkedHashMap<>();//Hash map does not retain insert order//LinkedHashMap retains insert order
-
-        List<Method> compositeTypeGetMethods = new ArrayList<>();//Get methods from inserted classes
-        try {
-            for (String fieldName : fieldNames) {
-
-                propertyDescriptor = new PropertyDescriptor(fieldName, obj.getClass());
-                currentGetMethod = propertyDescriptor.getReadMethod();
-
-                if (currentGetMethod.invoke(obj).toString().contains("=")) {
-                    compositeTypeGetMethods.add(currentGetMethod);
-                } else {
-                    valuesWithHeaders.put(fieldName, currentGetMethod.invoke(obj).toString());
-                }
-
-            }
-            for (Method compositeTypeGetMethod : compositeTypeGetMethods) {
-                valuesWithHeaders.putAll(getValuesWithHeaders(compositeTypeGetMethod.invoke(obj)));
-            }
-        } catch (IntrospectionException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-            Logger.getLogger(ExcelExporter.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        return valuesWithHeaders;
-    }
-    // Pattern for generic type usage
-    //    public <T extends Object> T getObject() {
-    //        return null;
-    //    }
-
-    public <T extends Object, E extends Object> File createExcelFromSheetMap(Map<T, List<Map<String, String>>> sheetLists, String fileName) {
+    public <T extends ValueObject> File createExcelExportDeprecated(List<T> objects, String fileName) throws IOException {
 
         Workbook workbook;
         if (FilenameUtils.getExtension(fileName).equals("xls")) {
@@ -143,9 +76,96 @@ public class ExcelExporter {
             fileName += ".xls";
         }
 
+        Sheet sheet = workbook.createSheet();
+        Row row = sheet.createRow(0);
+        int cellNum = 0;
+
+        List<String> headers = objects.get(0).getHeaders();
+        for (int i = 0; i < headers.size(); i++) {
+            Cell cell = row.createCell(cellNum++);
+            cell.setCellValue(headers.get(i));
+        }
+        int rowNum = 1;
+        List<String> values = new ArrayList<>();// = objects.get(0).getValues().split("\t");
+        for (T obj : objects) {
+
+            values = obj.getValues();
+            cellNum = 0;
+            row = sheet.createRow(rowNum++);
+            for (int i = 0; i < values.size(); i++) {
+                Cell cell = row.createCell(cellNum++);
+                cell.setCellValue(values.get(i));
+            }
+
+        }
+
+        return excelFile(workbook, fileName);
+    }
+
+    /**
+     *
+     * @param classDefinition
+     * @return
+     */
+    public List<String> getFieldNames(Class classDefinition) {
+
+        List<String> fieldNames = new ArrayList<>();
+
+        for (Field field : classDefinition.getDeclaredFields()) {
+            fieldNames.add(field.getName());
+        }
+
+        return fieldNames;
+    }
+
+    public <E extends ValueObject> Map<String, List<List<String>>> getSheetListsByFieldName(List<E> objects, String fieldName) {
+
+        Map<String, List<List<String>>> sheetList = new HashMap<>();
+        //Map<List<List String>>> sheetList = new HashMap<>();
+        for (E object : objects) {
+            Map<String, String> objectValues = getValuesWithHeaders(object);
+
+            if (!sheetList.containsKey(objectValues.get(fieldName))) {
+                sheetList.put(objectValues.get(fieldName), new ArrayList<>());
+            }
+            sheetList.get(objectValues.get(fieldName)).add(new ArrayList<>(objectValues.values()));
+        }
+        return sheetList;
+    }
+
+    public <T extends ValueObject> Map<String, String> getValuesWithHeaders(T object) {
+
+        Map<String, String> valuesWithHeaders = new LinkedHashMap<>();
+
+        List<String> headers = object.getHeaders();
+        List<String> values = object.getValues();
+
+        for (int i = 0; i < headers.size(); i++) {
+            valuesWithHeaders.put(headers.get(i), values.get(i));
+        }
+
+        return valuesWithHeaders;
+    }
+    // Pattern for generic type usage
+    //    public <T extends Object> T getObject() {
+    //        return null;
+    //    }
+
+    public <T extends Object, E extends Object> File createExcelFromSheetMap(List<ValueObject> objects, String fieldName, String fileName) {
+
+        Workbook workbook;
+        if (FilenameUtils.getExtension(fileName).equals("xls")) {
+            workbook = new HSSFWorkbook();
+        } else if (FilenameUtils.getExtension(fileName).equals("xlsx")) {
+            workbook = new XSSFWorkbook();
+        } else {
+            workbook = new HSSFWorkbook();
+            fileName += ".xls";
+        }
+        Map<String, List<List<String>>> sheetLists = getSheetListsByFieldName(objects, fieldName);
         sheetLists.keySet().forEach((mapKey) -> {
             Sheet sheet = workbook.createSheet(mapKey.toString());
-            putHeaders(new ArrayList<>(sheetLists.get(mapKey).get(0).keySet()), sheet, workbook);
+            putHeaders(objects.get(0).getHeaders(), sheet, workbook);
             putCellValues(sheet, sheetLists.get(mapKey));
         });
 
@@ -167,14 +187,14 @@ public class ExcelExporter {
         }
     }
 
-    private void putCellValues(Sheet sheet, List<Map<String, String>> cellValues) {
+    private void putCellValues(Sheet sheet, List<List< String>> cellValues) {
         int rowNum = 1;
         int cellNum;
         Row row;
-        for (Map<String, String> objectValues : cellValues) {
+        for (List<String> objectValues : cellValues) {
             cellNum = 0;
             row = sheet.createRow(rowNum++);
-            for (String parameter : objectValues.values()) {
+            for (String parameter : objectValues) {
 
                 Cell cell = row.createCell(cellNum++);
                 cell.setCellValue(parameter);

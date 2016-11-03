@@ -13,9 +13,6 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
 import lombok.Data;
 
 /**
@@ -24,7 +21,7 @@ import lombok.Data;
  */
 @Entity
 @Data
-public class Person implements Serializable {
+public class Person implements ValueObject, Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -40,6 +37,29 @@ public class Person implements Serializable {
     }
 
     public Person() {
+    }
+
+    @Override
+    public List<String> getValues() {
+        List<String> values = new ArrayList<String>();
+        values.add(this.personId.toString());
+        values.add(this.personName);
+        values.add(this.gender.toString());
+        values.addAll(this.address.getValues());
+
+        return values;
+    }
+
+    @Override
+    public List<String> getHeaders() {
+
+        List<String> getHeaders = new ArrayList<String>();
+        getHeaders.add("Person ID");
+        getHeaders.add("Person Name");
+        getHeaders.add("Gender");
+        getHeaders.addAll(this.address.getHeaders());
+
+        return getHeaders;
     }
 
 }
